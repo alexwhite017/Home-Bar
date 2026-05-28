@@ -14,4 +14,8 @@ export const SUBSTITUTION_GROUPS: { name: string; members: string[] }[] = [
     name: "Orange liqueurs",
     members: ["Triple sec", "Cointreau", "Grand Marnier"],
   },
+  {
+    name: "American whiskeys",
+    members: ["Bourbon", "Rye"],
+  },
 ];

@@ -2,19 +2,25 @@ import Link from "next/link";
 
 export function Nav() {
   return (
-    <nav className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
-      <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
+    <nav className="sticky top-0 z-20 border-b border-stone-200 bg-stone-50/80 backdrop-blur-md dark:border-stone-800 dark:bg-stone-950/80">
+      <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4 sm:px-6">
         <Link
           href="/"
-          className="text-lg font-semibold tracking-tight"
+          className="font-serif text-xl italic tracking-tight text-amber-700 dark:text-amber-500"
         >
-          What&apos;s Behind the Bar
+          Behind the Bar
         </Link>
-        <div className="flex gap-6 text-sm">
-          <Link href="/" className="hover:text-amber-600">
+        <div className="flex gap-1 text-sm font-medium">
+          <Link
+            href="/"
+            className="rounded-full px-3 py-1.5 text-stone-600 transition-colors hover:bg-stone-100 hover:text-stone-900 dark:text-stone-400 dark:hover:bg-stone-900 dark:hover:text-stone-100"
+          >
             Matches
           </Link>
-          <Link href="/bar" className="hover:text-amber-600">
+          <Link
+            href="/bar"
+            className="rounded-full px-3 py-1.5 text-stone-600 transition-colors hover:bg-stone-100 hover:text-stone-900 dark:text-stone-400 dark:hover:bg-stone-900 dark:hover:text-stone-100"
+          >
             My Bar
           </Link>
         </div>

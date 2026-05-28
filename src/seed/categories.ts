@@ -3,6 +3,7 @@ export type IngredientCategory =
   | "liqueur"
   | "fortified_wine"
   | "sparkling_wine"
+  | "wine"
   | "bitters"
   | "pastis"
   | "mixer"
@@ -37,6 +38,7 @@ export const CATEGORY_TREE: Record<IngredientCategory, CategoryNode> = {
         name: "Whiskey",
         children: [
           { name: "Bourbon" },
+          { name: "Rye" },
           { name: "Scotch" },
           { name: "Irish whiskey" },
           { name: "Blended whiskey" },
@@ -47,6 +49,7 @@ export const CATEGORY_TREE: Record<IngredientCategory, CategoryNode> = {
         children: [{ name: "Cognac" }],
       },
       { name: "Tequila" },
+      { name: "Mezcal" },
       { name: "Cachaça" },
       { name: "Pisco" },
     ],
@@ -68,7 +71,13 @@ export const CATEGORY_TREE: Record<IngredientCategory, CategoryNode> = {
         name: "Coffee liqueur",
         children: [{ name: "Kahlúa" }],
       },
-      { name: "Crème de cacao" },
+      {
+        name: "Crème de cacao",
+        children: [
+          { name: "White crème de cacao" },
+          { name: "Brown crème de cacao" },
+        ],
+      },
       { name: "Crème de cassis" },
       {
         name: "Crème de menthe",
@@ -78,10 +87,14 @@ export const CATEGORY_TREE: Record<IngredientCategory, CategoryNode> = {
         ],
       },
       { name: "Crème de mûre" },
+      { name: "Crème de violette" },
+      { name: "Cherry liqueur" },
       { name: "Galliano" },
       { name: "Bénédictine" },
       { name: "Drambuie" },
       { name: "Campari" },
+      { name: "Aperol" },
+      { name: "Amaro Nonino" },
       { name: "Baileys" },
       { name: "Peach schnapps" },
       { name: "Raspberry liqueur" },
@@ -102,6 +115,10 @@ export const CATEGORY_TREE: Record<IngredientCategory, CategoryNode> = {
   sparkling_wine: {
     name: "Sparkling wine",
     children: [{ name: "Champagne" }, { name: "Prosecco" }],
+  },
+  wine: {
+    name: "Wine",
+    children: [{ name: "Dry white wine" }],
   },
   bitters: {
     name: "Bitters",
@@ -149,6 +166,7 @@ export const CATEGORY_TREE: Record<IngredientCategory, CategoryNode> = {
       { name: "Orgeat" },
       { name: "Honey syrup" },
       { name: "Ginger syrup" },
+      { name: "Agave syrup" },
     ],
   },
   dairy: {
@@ -156,6 +174,7 @@ export const CATEGORY_TREE: Record<IngredientCategory, CategoryNode> = {
     children: [
       { name: "Heavy cream" },
       { name: "Coconut milk" },
+      { name: "Coconut cream" },
       { name: "Whipped cream" },
     ],
   },
@@ -175,10 +194,16 @@ export const CATEGORY_TREE: Record<IngredientCategory, CategoryNode> = {
       { name: "Pineapple" },
       { name: "Nutmeg" },
       { name: "Salt" },
+      { name: "Coffee beans" },
     ],
   },
   other: {
     name: "Other",
-    children: [{ name: "Coffee" }, { name: "Olive brine" }],
+    children: [
+      { name: "Coffee" },
+      { name: "Espresso" },
+      { name: "Peach purée" },
+      { name: "Olive brine" },
+    ],
   },
 };

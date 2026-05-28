@@ -20,22 +20,30 @@ export function RecipeDetailView({
   const { ids, hydrated } = useInventory();
 
   return (
-    <article className="mx-auto max-w-2xl px-6 py-8">
-      <Link href="/" className="text-sm text-zinc-500 hover:text-amber-600">
-        ← Back
+    <article className="mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-10">
+      <Link
+        href="/"
+        className="inline-flex items-center text-sm text-stone-500 transition-colors hover:text-amber-700 dark:hover:text-amber-500"
+      >
+        ← Back to matches
       </Link>
-      <h1 className="mt-4 text-3xl font-semibold tracking-tight">
-        {recipe.name}
-      </h1>
-      {recipe.glass && (
-        <p className="mt-1 text-sm text-zinc-500">Served in: {recipe.glass}</p>
-      )}
+
+      <header className="mt-6 border-b border-stone-200 pb-6 dark:border-stone-800">
+        <h1 className="font-serif text-4xl italic tracking-tight sm:text-5xl">
+          {recipe.name}
+        </h1>
+        {recipe.glass && (
+          <p className="mt-2 text-sm text-stone-500">
+            Served in a {recipe.glass.toLowerCase()}
+          </p>
+        )}
+      </header>
 
       <section className="mt-8">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-stone-500">
           Ingredients
         </h2>
-        <ul className="mt-3 space-y-2">
+        <ul className="mt-4 space-y-1.5">
           {recipe.lines.map((line, i) => {
             const satisfiers =
               catalog.satisfiers.get(line.ingredientId) ?? new Set<number>();
@@ -43,8 +51,7 @@ export function RecipeDetailView({
             if (hydrated) {
               for (const id of satisfiers) {
                 if (ids.has(id)) {
-                  satisfiedBy =
-                    catalog.ingredients.get(id)?.name ?? null;
+                  satisfiedBy = catalog.ingredients.get(id)?.name ?? null;
                   break;
                 }
               }
@@ -57,54 +64,64 @@ export function RecipeDetailView({
                 : line.optional
                   ? "optional"
                   : "missing";
+            const dotClass =
+              status === "have"
+                ? "bg-emerald-500"
+                : status === "missing"
+                  ? "bg-rose-500"
+                  : "bg-stone-300 dark:bg-stone-700";
             return (
               <li
                 key={i}
-                className="flex items-baseline justify-between gap-3 rounded border border-zinc-100 px-3 py-2 dark:border-zinc-800"
+                className="flex items-start gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-stone-100 dark:hover:bg-stone-900"
               >
-                <div>
-                  <span
-                    className={
-                      status === "missing"
-                        ? "font-medium text-rose-600"
-                        : "font-medium"
-                    }
-                  >
-                    {line.notation || "—"} {line.ingredientName}
-                  </span>
-                  {line.optional && (
-                    <span className="ml-2 text-xs text-zinc-400">
-                      (optional)
+                <span
+                  className={`mt-2 h-1.5 w-1.5 shrink-0 rounded-full ${dotClass}`}
+                  aria-hidden
+                />
+                <div className="flex-1">
+                  <div className="flex flex-wrap items-baseline gap-x-2">
+                    <span
+                      className={
+                        status === "missing"
+                          ? "font-medium text-rose-700 dark:text-rose-400"
+                          : "font-medium"
+                      }
+                    >
+                      {line.notation || "—"}
                     </span>
-                  )}
-                  {status === "have" && !isSelf && (
-                    <span className="ml-2 text-xs text-emerald-600">
-                      via {satisfiedBy}
+                    <span
+                      className={
+                        status === "missing"
+                          ? "text-rose-700 dark:text-rose-400"
+                          : ""
+                      }
+                    >
+                      {line.ingredientName}
                     </span>
+                    {line.optional && (
+                      <span className="text-xs text-stone-400">optional</span>
+                    )}
+                  </div>
+                  {status === "have" && !isSelf && satisfiedBy && (
+                    <div className="mt-0.5 text-xs text-emerald-700 dark:text-emerald-400">
+                      using your {satisfiedBy}
+                    </div>
                   )}
                 </div>
-                <span className="text-xs">
-                  {status === "have" && (
-                    <span className="font-medium text-emerald-600">have</span>
-                  )}
-                  {status === "missing" && (
-                    <span className="font-medium text-rose-600">need</span>
-                  )}
-                  {status === "optional" && !satisfiedBy && (
-                    <span className="text-zinc-400">optional</span>
-                  )}
-                </span>
               </li>
             );
           })}
         </ul>
       </section>
 
-      <section className="mt-8">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
+      <section className="mt-10">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-stone-500">
           Method
         </h2>
-        <p className="mt-3 leading-relaxed">{recipe.instructions}</p>
+        <p className="mt-4 leading-relaxed text-stone-700 dark:text-stone-300">
+          {recipe.instructions}
+        </p>
       </section>
     </article>
   );

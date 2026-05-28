@@ -22,8 +22,18 @@ import {
 } from "@/seed/normalize";
 import { SUBSTITUTION_GROUPS } from "@/seed/substitutions";
 import { parseMeasure } from "@/seed/parse-measure";
+import { RECIPE_OVERRIDES } from "@/seed/recipe-overrides";
+import { RECIPE_ADDITIONS } from "@/seed/recipe-additions";
 
 type RawDrink = Record<string, string | null>;
+
+type RecipeInput = {
+  externalId: string | null;
+  name: string;
+  glass: string | null;
+  instructions: string;
+  lines: Array<{ canonical: string; notation: string; optional?: boolean }>;
+};
 
 const GARNISH_NAMES = new Set(
   CATEGORY_TREE.garnish.children?.map((c) => c.name) ?? [],
@@ -62,7 +72,6 @@ function canonicalize(raw: string): string | null {
 }
 
 function clearAll() {
-  // Delete in FK dependency order (children before parents)
   db.delete(recipeIngredients).run();
   db.delete(substitutionGroupMembers).run();
   db.delete(recipes).run();
@@ -70,9 +79,6 @@ function clearAll() {
   db.delete(ingredients).run();
 }
 
-// Walks CATEGORY_TREE and inserts every node as an ingredients row,
-// threading parent_id from each parent to its children. Returns a
-// map of canonical name → row id so later steps can look up FKs.
 function seedCategories(): Map<string, number> {
   const nameToId = new Map<string, number>();
 
@@ -92,9 +98,7 @@ function seedCategories(): Map<string, number> {
     }
   }
 
-  // Skip the abstract category roots ("Spirit", "Liqueur", etc.) — they're
-  // purely organizational and would otherwise show up as inventory candidates.
-  // Their children become top-level rows with parentId = null.
+  // Skip the abstract category roots — purely organizational, not real bottles.
   for (const [category, root] of Object.entries(CATEGORY_TREE)) {
     for (const child of root.children ?? []) {
       insertNode(child, category as IngredientCategory, null);
@@ -127,57 +131,37 @@ function seedSubstitutions(nameToId: Map<string, number>) {
 
 function importRecipes(nameToId: Map<string, number>) {
   const cache = loadCache();
-  const toImport = cache.filter(shouldImport);
+  const overrideByName = new Map(RECIPE_OVERRIDES.map((o) => [o.name, o]));
   const uncategorized = new Set<string>();
-  let imported = 0;
+  let fromApi = 0;
+  let overridden = 0;
   let skipped = 0;
 
-  for (const drink of toImport) {
-    const lines: { canonical: string; measure: string | null }[] = [];
-    let skipRecipe = false;
-
-    for (let i = 1; i <= 15; i++) {
-      const raw = drink[`strIngredient${i}`];
-      if (!raw) continue;
-
-      if (RECIPE_SKIP_INGREDIENTS.has(raw.trim().toLowerCase())) {
-        skipRecipe = true;
-        break;
-      }
-
-      const measure = drink[`strMeasure${i}`];
-      const remapped = remapJuiceOfFruit(raw, measure);
-      const canonical = canonicalize(remapped);
-      if (canonical === null) continue; // skipped ingredient (ice / water)
-
-      lines.push({ canonical, measure });
-    }
-
-    if (skipRecipe) {
-      skipped++;
-      continue;
-    }
-
+  function insertRecipe(input: RecipeInput) {
     const [recipeRow] = db
       .insert(recipes)
       .values({
-        externalId: drink.idDrink,
-        name: drink.strDrink ?? "",
-        instructions: drink.strInstructions ?? "",
-        glass: drink.strGlass,
+        externalId: input.externalId,
+        name: input.name,
+        instructions: input.instructions,
+        glass: input.glass,
         garnish: null,
       })
       .returning({ id: recipes.id })
       .all();
 
     let position = 0;
-    for (const line of lines) {
+    for (const line of input.lines) {
       const ingredientId = nameToId.get(line.canonical);
       if (!ingredientId) {
         uncategorized.add(line.canonical);
         continue;
       }
-      const parsed = parseMeasure(line.measure);
+      const parsed = parseMeasure(line.notation);
+      const optional =
+        line.optional !== undefined
+          ? line.optional
+          : isOptionalLine(line.canonical, parsed.notation);
       db.insert(recipeIngredients)
         .values({
           recipeId: recipeRow.id,
@@ -186,16 +170,77 @@ function importRecipes(nameToId: Map<string, number>) {
           amount: parsed.amount,
           unit: parsed.unit,
           notation: parsed.notation,
-          optional: isOptionalLine(line.canonical, parsed.notation),
+          optional,
         })
         .run();
     }
+  }
 
-    imported++;
+  // API-sourced recipes (with overrides applied where defined)
+  for (const drink of cache.filter(shouldImport)) {
+    const override = overrideByName.get(drink.strDrink ?? "");
+    if (override) {
+      insertRecipe({
+        externalId: drink.idDrink,
+        name: override.name,
+        glass: override.glass,
+        instructions: override.instructions,
+        lines: override.ingredients.map((i) => ({
+          canonical: i.name,
+          notation: i.notation,
+          optional: i.optional,
+        })),
+      });
+      overridden++;
+      continue;
+    }
+
+    let skipRecipe = false;
+    const lines: Array<{ canonical: string; notation: string }> = [];
+    for (let i = 1; i <= 15; i++) {
+      const raw = drink[`strIngredient${i}`];
+      if (!raw) continue;
+      if (RECIPE_SKIP_INGREDIENTS.has(raw.trim().toLowerCase())) {
+        skipRecipe = true;
+        break;
+      }
+      const measure = drink[`strMeasure${i}`];
+      const remapped = remapJuiceOfFruit(raw, measure);
+      const canonical = canonicalize(remapped);
+      if (canonical === null) continue;
+      lines.push({ canonical, notation: measure ?? "" });
+    }
+    if (skipRecipe) {
+      skipped++;
+      continue;
+    }
+    insertRecipe({
+      externalId: drink.idDrink,
+      name: drink.strDrink ?? "",
+      glass: drink.strGlass,
+      instructions: drink.strInstructions ?? "",
+      lines,
+    });
+    fromApi++;
+  }
+
+  // Hand-authored additions (no API source)
+  for (const add of RECIPE_ADDITIONS) {
+    insertRecipe({
+      externalId: null,
+      name: add.name,
+      glass: add.glass,
+      instructions: add.instructions,
+      lines: add.ingredients.map((i) => ({
+        canonical: i.name,
+        notation: i.notation,
+        optional: i.optional,
+      })),
+    });
   }
 
   console.log(
-    `\nImported ${imported} recipes (${skipped} skipped due to filter ingredients)`,
+    `\n  ${fromApi} from API, ${overridden} with override, ${RECIPE_ADDITIONS.length} additions (${skipped} skipped)`,
   );
   if (uncategorized.size > 0) {
     console.log(
