@@ -40,7 +40,15 @@ export function useInventory() {
     });
   }, []);
 
+  const addMany = useCallback((newIds: Iterable<number>) => {
+    setIds((prev) => {
+      const next = new Set(prev);
+      for (const id of newIds) next.add(id);
+      return next;
+    });
+  }, []);
+
   const clear = useCallback(() => setIds(new Set()), []);
 
-  return { ids, toggle, clear, hydrated };
+  return { ids, toggle, addMany, clear, hydrated };
 }

@@ -6,6 +6,7 @@ export type RecipeAddition = {
   name: string;
   glass: string;
   instructions: string;
+  imageUrl?: string;
   ingredients: Array<{
     name: string;
     notation: string;

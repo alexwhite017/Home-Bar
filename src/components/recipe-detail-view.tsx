@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useInventory } from "@/hooks/use-inventory";
 import {
@@ -28,7 +29,20 @@ export function RecipeDetailView({
         ← Back to matches
       </Link>
 
-      <header className="mt-6 border-b border-stone-200 pb-6 dark:border-stone-800">
+      {recipe.imageUrl && (
+        <div className="relative mt-6 aspect-[5/3] w-full overflow-hidden rounded-2xl bg-stone-100 shadow-sm dark:bg-stone-800">
+          <Image
+            src={recipe.imageUrl}
+            alt=""
+            fill
+            sizes="(min-width: 768px) 672px, 100vw"
+            className="object-cover"
+            priority
+          />
+        </div>
+      )}
+
+      <header className="mt-8 border-b border-stone-200 pb-6 dark:border-stone-800">
         <h1 className="font-serif text-4xl italic tracking-tight sm:text-5xl">
           {recipe.name}
         </h1>

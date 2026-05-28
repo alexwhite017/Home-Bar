@@ -1,10 +1,12 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useInventory } from "@/hooks/use-inventory";
 import {
   deserializeCatalog,
+  type RecipeRow,
   type SerializedCatalog,
 } from "@/lib/catalog-types";
 import {
@@ -12,6 +14,27 @@ import {
   computeNextBuys,
   type MatchResult,
 } from "@/lib/matching";
+import { STARTER_PACKS } from "@/lib/starter-packs";
+import { TAG_LABELS, TAG_ORDER, type Tag } from "@/lib/tags";
+
+function matchesFilter(
+  recipe: RecipeRow,
+  activeTags: Set<string>,
+  query: string,
+): boolean {
+  for (const t of activeTags) {
+    if (!recipe.tags.includes(t)) return false;
+  }
+  const q = query.trim().toLowerCase();
+  if (q) {
+    const nameMatch = recipe.name.toLowerCase().includes(q);
+    const ingMatch = recipe.lines.some((l) =>
+      l.ingredientName.toLowerCase().includes(q),
+    );
+    if (!nameMatch && !ingMatch) return false;
+  }
+  return true;
+}
 
 export function HomeView({
   catalog: serialized,
@@ -19,12 +42,47 @@ export function HomeView({
   catalog: SerializedCatalog;
 }) {
   const catalog = useMemo(() => deserializeCatalog(serialized), [serialized]);
-  const { ids, hydrated } = useInventory();
+  const { ids, addMany, hydrated } = useInventory();
   const matches = useMemo(() => computeMatches(catalog, ids), [catalog, ids]);
   const nextBuys = useMemo(
     () => computeNextBuys(catalog, ids, 5),
     [catalog, ids],
   );
+
+  const [activeTags, setActiveTags] = useState<Set<Tag>>(new Set());
+  const [query, setQuery] = useState("");
+
+  const availableTags = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of catalog.recipes) for (const t of r.tags) set.add(t);
+    return set;
+  }, [catalog]);
+
+  const filtered = useMemo(() => {
+    const passes = (m: MatchResult) =>
+      matchesFilter(m.recipe, activeTags, query);
+    return {
+      canMake: matches.canMake.filter(passes),
+      oneAway: matches.oneAway.filter(passes),
+      close: matches.close.filter(passes),
+    };
+  }, [matches, activeTags, query]);
+
+  const hasActiveFilters = activeTags.size > 0 || query.trim().length > 0;
+
+  const toggleTag = (tag: Tag) => {
+    setActiveTags((prev) => {
+      const next = new Set(prev);
+      if (next.has(tag)) next.delete(tag);
+      else next.add(tag);
+      return next;
+    });
+  };
+
+  const clearFilters = () => {
+    setActiveTags(new Set());
+    setQuery("");
+  };
 
   if (!hydrated) {
     return (
@@ -34,103 +92,181 @@ export function HomeView({
 
   if (ids.size === 0) {
     return (
-      <div className="mx-auto max-w-2xl px-6 py-20 text-center">
-        <h1 className="font-serif text-4xl italic tracking-tight">
-          Your bar is empty
-        </h1>
-        <p className="mt-4 text-stone-600 dark:text-stone-400">
-          Add a few bottles to your shelf and we&apos;ll show you what you can
-          pour tonight.
+      <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 sm:py-20">
+        <div className="text-center">
+          <h1 className="font-serif text-4xl italic tracking-tight sm:text-5xl">
+            Your bar is empty
+          </h1>
+          <p className="mt-4 text-stone-600 dark:text-stone-400">
+            Pick a starter pack to fill your shelf in one click.
+          </p>
+        </div>
+        <ul className="mt-10 grid gap-4 sm:grid-cols-2">
+          {STARTER_PACKS.map((pack) => {
+            const ingredientIds = pack.ingredients
+              .map((name) => catalog.ingredientsByName.get(name)?.id)
+              .filter((id): id is number => id !== undefined);
+            return (
+              <li key={pack.id}>
+                <button
+                  onClick={() => addMany(ingredientIds)}
+                  className="block w-full rounded-2xl border border-stone-200 bg-white p-6 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-amber-300 hover:shadow-md dark:border-stone-800 dark:bg-stone-900 dark:hover:border-amber-700"
+                >
+                  <h2 className="font-serif text-2xl italic tracking-tight text-amber-700 dark:text-amber-500">
+                    {pack.name}
+                  </h2>
+                  <p className="mt-2 text-sm text-stone-600 dark:text-stone-400">
+                    {pack.tagline}
+                  </p>
+                  <p className="mt-3 text-xs tabular-nums text-stone-400">
+                    {ingredientIds.length} bottle
+                    {ingredientIds.length === 1 ? "" : "s"}
+                  </p>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        <p className="mt-8 text-center text-sm text-stone-500">
+          Or{" "}
+          <Link
+            href="/bar"
+            className="text-amber-700 hover:underline dark:text-amber-500"
+          >
+            build your own bar →
+          </Link>
         </p>
-        <Link
-          href="/bar"
-          className="mt-8 inline-flex items-center rounded-full bg-amber-700 px-6 py-3 text-sm font-medium text-white shadow-sm transition-all hover:bg-amber-800 hover:shadow"
-        >
-          Set up my bar →
-        </Link>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-12 px-4 py-8 sm:px-6 sm:py-10">
-      <Section
-        title="Ready to make"
-        recipes={matches.canMake}
-        accent="emerald"
-        emptyMsg="Nothing yet — add a few more bottles."
-      />
-      <Section
-        title="One ingredient away"
-        recipes={matches.oneAway}
-        accent="amber"
-        showMissing
-      />
-      <Section
-        title="Close — 2 or 3 missing"
-        recipes={matches.close.slice(0, 12)}
-        accent="stone"
-        showMissing
-      />
-      {nextBuys.length > 0 && (
-        <aside className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm dark:border-stone-800 dark:bg-stone-900">
-          <h2 className="font-serif text-lg italic text-stone-700 dark:text-stone-300">
-            What to buy next
-          </h2>
-          <p className="mt-1 text-xs text-stone-500">
-            Bottles that would unlock the most new recipes
-          </p>
-          <ul className="mt-4 space-y-1.5 text-sm">
-            {nextBuys.map((b) => (
-              <li
-                key={b.ingredient.id}
-                className="flex items-baseline justify-between"
+    <div>
+      <div className="sticky top-[65px] z-10 border-b border-stone-200/80 bg-stone-50/85 backdrop-blur-md dark:border-stone-800 dark:bg-stone-950/85">
+        <div className="mx-auto max-w-5xl px-4 py-4 sm:px-6">
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search recipes or ingredients..."
+            autoComplete="off"
+            className="w-full rounded-full border border-stone-300 bg-white px-5 py-2.5 text-sm shadow-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20 dark:border-stone-700 dark:bg-stone-900"
+          />
+          <div className="mt-3 flex flex-wrap items-center gap-1.5">
+            {TAG_ORDER.filter((t) => availableTags.has(t)).map((tag) => {
+              const isActive = activeTags.has(tag);
+              return (
+                <button
+                  key={tag}
+                  aria-pressed={isActive}
+                  onClick={() => toggleTag(tag)}
+                  className={
+                    isActive
+                      ? "rounded-full border border-amber-600 bg-amber-100 px-3 py-1 text-xs font-medium text-amber-900 transition-colors dark:border-amber-500 dark:bg-amber-950/60 dark:text-amber-200"
+                      : "rounded-full border border-stone-300 bg-white px-3 py-1 text-xs font-medium text-stone-600 transition-colors hover:border-stone-400 hover:text-stone-900 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-400 dark:hover:border-stone-600 dark:hover:text-stone-200"
+                  }
+                >
+                  {TAG_LABELS[tag]}
+                </button>
+              );
+            })}
+            {hasActiveFilters && (
+              <button
+                onClick={clearFilters}
+                className="ml-1 rounded-full px-3 py-1 text-xs font-medium text-amber-700 hover:underline dark:text-amber-500"
               >
-                <span className="font-medium">{b.ingredient.name}</span>
-                <span className="text-xs text-stone-500">
-                  +{b.unlocks} recipe{b.unlocks === 1 ? "" : "s"}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </aside>
-      )}
+                Clear filters
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="mx-auto max-w-5xl space-y-12 px-4 py-8 sm:px-6 sm:py-10">
+        <Section
+          title="Ready to make"
+          recipes={filtered.canMake}
+          accent="emerald"
+          hasFilters={hasActiveFilters}
+          emptyMsg="Nothing yet — add a few more bottles."
+        />
+        <Section
+          title="One ingredient away"
+          recipes={filtered.oneAway}
+          accent="amber"
+          hasFilters={hasActiveFilters}
+          showMissing
+        />
+        <Section
+          title="Close — 2 or 3 missing"
+          recipes={filtered.close.slice(0, 12)}
+          accent="stone"
+          hasFilters={hasActiveFilters}
+          showMissing
+        />
+        {nextBuys.length > 0 && !hasActiveFilters && (
+          <aside className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm dark:border-stone-800 dark:bg-stone-900">
+            <h2 className="font-serif text-lg italic text-stone-700 dark:text-stone-300">
+              What to buy next
+            </h2>
+            <p className="mt-1 text-xs text-stone-500">
+              Bottles that would unlock the most new recipes
+            </p>
+            <ul className="mt-4 space-y-1.5 text-sm">
+              {nextBuys.map((b) => (
+                <li
+                  key={b.ingredient.id}
+                  className="flex items-baseline justify-between"
+                >
+                  <span className="font-medium">{b.ingredient.name}</span>
+                  <span className="text-xs text-stone-500">
+                    +{b.unlocks} recipe{b.unlocks === 1 ? "" : "s"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </aside>
+        )}
+      </div>
     </div>
   );
 }
 
 const ACCENT_CLASSES = {
-  emerald: "border-emerald-200 hover:border-emerald-400 dark:border-emerald-900/50 dark:hover:border-emerald-600",
-  amber: "border-amber-200 hover:border-amber-400 dark:border-amber-900/50 dark:hover:border-amber-600",
-  stone: "border-stone-200 hover:border-stone-400 dark:border-stone-800 dark:hover:border-stone-600",
+  emerald:
+    "border-emerald-200 hover:border-emerald-400 dark:border-emerald-900/50 dark:hover:border-emerald-600",
+  amber:
+    "border-amber-200 hover:border-amber-400 dark:border-amber-900/50 dark:hover:border-amber-600",
+  stone:
+    "border-stone-200 hover:border-stone-400 dark:border-stone-800 dark:hover:border-stone-600",
 } as const;
 
 function Section({
   title,
   recipes,
   accent,
+  hasFilters,
   showMissing,
   emptyMsg,
 }: {
   title: string;
   recipes: MatchResult[];
   accent: keyof typeof ACCENT_CLASSES;
+  hasFilters?: boolean;
   showMissing?: boolean;
   emptyMsg?: string;
 }) {
   return (
     <section>
       <div className="flex items-baseline justify-between">
-        <h2 className="font-serif text-2xl italic tracking-tight">
-          {title}
-        </h2>
+        <h2 className="font-serif text-2xl italic tracking-tight">{title}</h2>
         <span className="text-sm tabular-nums text-stone-400">
           {recipes.length}
         </span>
       </div>
       {recipes.length === 0 ? (
         <p className="mt-4 text-sm text-stone-500">
-          {emptyMsg ?? "Nothing here."}
+          {hasFilters ? "No matches for these filters." : (emptyMsg ?? "Nothing here.")}
         </p>
       ) : (
         <ul className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -138,24 +274,45 @@ function Section({
             <li key={m.recipe.id}>
               <Link
                 href={`/recipes/${m.recipe.id}`}
-                className={`block rounded-xl border bg-white p-4 transition-all hover:shadow-md dark:bg-stone-900 ${ACCENT_CLASSES[accent]}`}
+                className={`group block overflow-hidden rounded-xl border bg-white transition-all hover:shadow-md dark:bg-stone-900 ${ACCENT_CLASSES[accent]}`}
               >
-                <div className="font-medium tracking-tight">
-                  {m.recipe.name}
-                </div>
-                {m.recipe.glass && (
-                  <div className="mt-0.5 text-xs text-stone-400">
-                    {m.recipe.glass}
+                {m.recipe.imageUrl ? (
+                  <div className="relative aspect-[4/3] w-full overflow-hidden bg-stone-100 dark:bg-stone-800">
+                    <Image
+                      src={m.recipe.imageUrl}
+                      alt=""
+                      fill
+                      sizes="(min-width: 1024px) 320px, (min-width: 640px) 50vw, 100vw"
+                      className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                    />
                   </div>
-                )}
-                {showMissing && m.missingLines.length > 0 && (
-                  <div className="mt-2 text-xs text-stone-500">
-                    needs{" "}
-                    <span className="font-medium text-stone-700 dark:text-stone-300">
-                      {m.missingLines.map((l) => l.ingredientName).join(", ")}
+                ) : (
+                  <div className="flex aspect-[4/3] w-full items-center justify-center bg-gradient-to-br from-amber-50 to-stone-100 dark:from-stone-800 dark:to-stone-900">
+                    <span className="font-serif text-6xl italic text-amber-700/40 dark:text-amber-500/30">
+                      {m.recipe.name[0]}
                     </span>
                   </div>
                 )}
+                <div className="p-4">
+                  <div className="font-medium tracking-tight">
+                    {m.recipe.name}
+                  </div>
+                  {m.recipe.glass && (
+                    <div className="mt-0.5 text-xs text-stone-400">
+                      {m.recipe.glass}
+                    </div>
+                  )}
+                  {showMissing && m.missingLines.length > 0 && (
+                    <div className="mt-2 text-xs text-stone-500">
+                      needs{" "}
+                      <span className="font-medium text-stone-700 dark:text-stone-300">
+                        {m.missingLines
+                          .map((l) => l.ingredientName)
+                          .join(", ")}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </Link>
             </li>
           ))}

@@ -19,6 +19,8 @@ export type RecipeRow = {
   name: string;
   instructions: string;
   glass: string | null;
+  imageUrl: string | null;
+  tags: string[];
   lines: RecipeLine[];
 };
 

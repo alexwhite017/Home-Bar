@@ -6,6 +6,9 @@ export type RecipeOverride = {
   name: string;
   glass: string;
   instructions: string;
+  // If unset, the API's strDrinkThumb is kept for this recipe.
+  // Set explicitly (including to null) to override.
+  imageUrl?: string | null;
   ingredients: Array<{
     name: string;
     notation: string;

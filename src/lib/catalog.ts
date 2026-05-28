@@ -10,6 +10,7 @@ import type {
   IngredientRow,
   RecipeRow,
 } from "@/lib/catalog-types";
+import { deriveTags } from "@/lib/tags";
 
 export type {
   Catalog,
@@ -94,12 +95,8 @@ export function loadCatalog(): Catalog {
     arr.push(l);
     linesByRecipe.set(l.recipeId, arr);
   }
-  const recipesOut: RecipeRow[] = recipeRows.map((r) => ({
-    id: r.id,
-    name: r.name,
-    instructions: r.instructions,
-    glass: r.glass,
-    lines: (linesByRecipe.get(r.id) ?? [])
+  const recipesOut: RecipeRow[] = recipeRows.map((r) => {
+    const lines = (linesByRecipe.get(r.id) ?? [])
       .sort((a, b) => a.position - b.position)
       .map((l) => ({
         ingredientId: l.ingredientId,
@@ -108,8 +105,17 @@ export function loadCatalog(): Catalog {
         unit: l.unit,
         notation: l.notation,
         optional: l.optional,
-      })),
-  }));
+      }));
+    return {
+      id: r.id,
+      name: r.name,
+      instructions: r.instructions,
+      glass: r.glass,
+      imageUrl: r.imageUrl,
+      tags: deriveTags(lines, r.instructions),
+      lines,
+    };
+  });
 
   return {
     ingredients: ingMap,

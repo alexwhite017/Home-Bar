@@ -41,6 +41,7 @@ export const recipes = sqliteTable("recipes", {
   instructions: text("instructions").notNull(),
   glass: text("glass"),
   garnish: text("garnish"),
+  imageUrl: text("image_url"),
 });
 
 export const recipeIngredients = sqliteTable(

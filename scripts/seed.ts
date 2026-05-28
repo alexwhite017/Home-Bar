@@ -32,6 +32,7 @@ type RecipeInput = {
   name: string;
   glass: string | null;
   instructions: string;
+  imageUrl: string | null;
   lines: Array<{ canonical: string; notation: string; optional?: boolean }>;
 };
 
@@ -146,6 +147,7 @@ function importRecipes(nameToId: Map<string, number>) {
         instructions: input.instructions,
         glass: input.glass,
         garnish: null,
+        imageUrl: input.imageUrl,
       })
       .returning({ id: recipes.id })
       .all();
@@ -185,6 +187,10 @@ function importRecipes(nameToId: Map<string, number>) {
         name: override.name,
         glass: override.glass,
         instructions: override.instructions,
+        imageUrl:
+          override.imageUrl !== undefined
+            ? override.imageUrl
+            : drink.strDrinkThumb,
         lines: override.ingredients.map((i) => ({
           canonical: i.name,
           notation: i.notation,
@@ -219,6 +225,7 @@ function importRecipes(nameToId: Map<string, number>) {
       name: drink.strDrink ?? "",
       glass: drink.strGlass,
       instructions: drink.strInstructions ?? "",
+      imageUrl: drink.strDrinkThumb,
       lines,
     });
     fromApi++;
@@ -231,6 +238,7 @@ function importRecipes(nameToId: Map<string, number>) {
       name: add.name,
       glass: add.glass,
       instructions: add.instructions,
+      imageUrl: add.imageUrl ?? null,
       lines: add.ingredients.map((i) => ({
         canonical: i.name,
         notation: i.notation,
