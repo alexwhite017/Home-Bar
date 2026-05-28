@@ -3,6 +3,11 @@ import { loadCatalog } from "@/lib/catalog";
 import { serializeCatalog } from "@/lib/catalog-types";
 import { RecipeDetailView } from "@/components/recipe-detail-view";
 
+export function generateStaticParams() {
+  const catalog = loadCatalog();
+  return catalog.recipes.map((r) => ({ id: r.id.toString() }));
+}
+
 export default async function RecipePage({
   params,
 }: {
