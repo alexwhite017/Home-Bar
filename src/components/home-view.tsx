@@ -1,9 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useInventory } from "@/hooks/use-inventory";
+import { useFavorites } from "@/hooks/use-favorites";
 import {
   deserializeCatalog,
   type RecipeRow,
@@ -13,6 +15,7 @@ import {
   computeMatches,
   computeNextBuys,
   type MatchResult,
+  type Matches,
 } from "@/lib/matching";
 import { STARTER_PACKS } from "@/lib/starter-packs";
 import { TAG_LABELS, TAG_ORDER, type Tag } from "@/lib/tags";
@@ -36,6 +39,17 @@ function matchesFilter(
   return true;
 }
 
+function resolveMatch(recipe: RecipeRow, matches: Matches): MatchResult {
+  return (
+    matches.canMake.find((m) => m.recipe.id === recipe.id) ??
+    matches.oneAway.find((m) => m.recipe.id === recipe.id) ??
+    matches.close.find((m) => m.recipe.id === recipe.id) ?? {
+      recipe,
+      missingLines: recipe.lines.filter((l) => !l.optional),
+    }
+  );
+}
+
 export function HomeView({
   catalog: serialized,
 }: {
@@ -43,14 +57,36 @@ export function HomeView({
 }) {
   const catalog = useMemo(() => deserializeCatalog(serialized), [serialized]);
   const { ids, addMany, hydrated } = useInventory();
+  const { ids: favorites, toggle: toggleFavorite } = useFavorites();
   const matches = useMemo(() => computeMatches(catalog, ids), [catalog, ids]);
   const nextBuys = useMemo(
     () => computeNextBuys(catalog, ids, 5),
     [catalog, ids],
   );
 
-  const [activeTags, setActiveTags] = useState<Set<Tag>>(new Set());
-  const [query, setQuery] = useState("");
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  const [activeTags, setActiveTags] = useState<Set<Tag>>(() => {
+    const raw = searchParams.get("tags");
+    if (!raw) return new Set();
+    const known = new Set<Tag>(TAG_ORDER);
+    return new Set(
+      raw.split(",").filter((t): t is Tag => known.has(t as Tag)),
+    );
+  });
+  const [query, setQuery] = useState(() => searchParams.get("q") ?? "");
+
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      const params = new URLSearchParams();
+      if (activeTags.size > 0) params.set("tags", [...activeTags].join(","));
+      if (query.trim()) params.set("q", query.trim());
+      const next = params.toString();
+      router.replace(next ? `?${next}` : "/", { scroll: false });
+    }, 150);
+    return () => clearTimeout(handle);
+  }, [activeTags, query, router]);
 
   const availableTags = useMemo(() => {
     const set = new Set<string>();
@@ -67,6 +103,14 @@ export function HomeView({
       close: matches.close.filter(passes),
     };
   }, [matches, activeTags, query]);
+
+  const favoriteMatches = useMemo(() => {
+    return catalog.recipes
+      .filter((r) => favorites.has(r.id))
+      .filter((r) => matchesFilter(r, activeTags, query))
+      .map((r) => resolveMatch(r, matches))
+      .sort((a, b) => a.recipe.name.localeCompare(b.recipe.name));
+  }, [catalog, favorites, matches, activeTags, query]);
 
   const hasActiveFilters = activeTags.size > 0 || query.trim().length > 0;
 
@@ -183,10 +227,22 @@ export function HomeView({
       </div>
 
       <div className="mx-auto max-w-5xl space-y-12 px-4 py-8 sm:px-6 sm:py-10">
+        {favoriteMatches.length > 0 && (
+          <Section
+            title="Favorites"
+            recipes={favoriteMatches}
+            accent="rose"
+            favorites={favorites}
+            onToggleFavorite={toggleFavorite}
+            showMissing
+          />
+        )}
         <Section
           title="Ready to make"
           recipes={filtered.canMake}
           accent="emerald"
+          favorites={favorites}
+          onToggleFavorite={toggleFavorite}
           hasFilters={hasActiveFilters}
           emptyMsg="Nothing yet — add a few more bottles."
         />
@@ -194,6 +250,8 @@ export function HomeView({
           title="One ingredient away"
           recipes={filtered.oneAway}
           accent="amber"
+          favorites={favorites}
+          onToggleFavorite={toggleFavorite}
           hasFilters={hasActiveFilters}
           showMissing
         />
@@ -201,6 +259,8 @@ export function HomeView({
           title="Close — 2 or 3 missing"
           recipes={filtered.close.slice(0, 12)}
           accent="stone"
+          favorites={favorites}
+          onToggleFavorite={toggleFavorite}
           hasFilters={hasActiveFilters}
           showMissing
         />
@@ -239,12 +299,16 @@ const ACCENT_CLASSES = {
     "border-amber-200 hover:border-amber-400 dark:border-amber-900/50 dark:hover:border-amber-600",
   stone:
     "border-stone-200 hover:border-stone-400 dark:border-stone-800 dark:hover:border-stone-600",
+  rose:
+    "border-rose-200 hover:border-rose-400 dark:border-rose-900/50 dark:hover:border-rose-600",
 } as const;
 
 function Section({
   title,
   recipes,
   accent,
+  favorites,
+  onToggleFavorite,
   hasFilters,
   showMissing,
   emptyMsg,
@@ -252,6 +316,8 @@ function Section({
   title: string;
   recipes: MatchResult[];
   accent: keyof typeof ACCENT_CLASSES;
+  favorites: Set<number>;
+  onToggleFavorite: (id: number) => void;
   hasFilters?: boolean;
   showMissing?: boolean;
   emptyMsg?: string;
@@ -266,56 +332,81 @@ function Section({
       </div>
       {recipes.length === 0 ? (
         <p className="mt-4 text-sm text-stone-500">
-          {hasFilters ? "No matches for these filters." : (emptyMsg ?? "Nothing here.")}
+          {hasFilters
+            ? "No matches for these filters."
+            : (emptyMsg ?? "Nothing here.")}
         </p>
       ) : (
         <ul className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {recipes.map((m) => (
-            <li key={m.recipe.id}>
-              <Link
-                href={`/recipes/${m.recipe.id}`}
-                className={`group block overflow-hidden rounded-xl border bg-white transition-all hover:shadow-md dark:bg-stone-900 ${ACCENT_CLASSES[accent]}`}
-              >
-                {m.recipe.imageUrl ? (
-                  <div className="relative aspect-[4/3] w-full overflow-hidden bg-stone-100 dark:bg-stone-800">
-                    <Image
-                      src={m.recipe.imageUrl}
-                      alt=""
-                      fill
-                      sizes="(min-width: 1024px) 320px, (min-width: 640px) 50vw, 100vw"
-                      className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                    />
-                  </div>
-                ) : (
-                  <div className="flex aspect-[4/3] w-full items-center justify-center bg-gradient-to-br from-amber-50 to-stone-100 dark:from-stone-800 dark:to-stone-900">
-                    <span className="font-serif text-6xl italic text-amber-700/40 dark:text-amber-500/30">
-                      {m.recipe.name[0]}
-                    </span>
-                  </div>
-                )}
-                <div className="p-4">
-                  <div className="font-medium tracking-tight">
-                    {m.recipe.name}
-                  </div>
-                  {m.recipe.glass && (
-                    <div className="mt-0.5 text-xs text-stone-400">
-                      {m.recipe.glass}
+          {recipes.map((m) => {
+            const isFav = favorites.has(m.recipe.id);
+            return (
+              <li key={m.recipe.id} className="relative">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onToggleFavorite(m.recipe.id);
+                  }}
+                  aria-label={
+                    isFav ? "Remove from favorites" : "Save to favorites"
+                  }
+                  aria-pressed={isFav}
+                  className="absolute right-2 top-2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-base leading-none shadow-sm backdrop-blur-sm transition-transform hover:scale-110 dark:bg-stone-900/90"
+                >
+                  <span
+                    className={
+                      isFav ? "text-rose-500" : "text-stone-400"
+                    }
+                  >
+                    {isFav ? "♥" : "♡"}
+                  </span>
+                </button>
+                <Link
+                  href={`/recipes/${m.recipe.id}`}
+                  className={`group block overflow-hidden rounded-xl border bg-white transition-all hover:shadow-md dark:bg-stone-900 ${ACCENT_CLASSES[accent]}`}
+                >
+                  {m.recipe.imageUrl ? (
+                    <div className="relative aspect-[4/3] w-full overflow-hidden bg-stone-100 dark:bg-stone-800">
+                      <Image
+                        src={m.recipe.imageUrl}
+                        alt=""
+                        fill
+                        sizes="(min-width: 1024px) 320px, (min-width: 640px) 50vw, 100vw"
+                        className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                      />
                     </div>
-                  )}
-                  {showMissing && m.missingLines.length > 0 && (
-                    <div className="mt-2 text-xs text-stone-500">
-                      needs{" "}
-                      <span className="font-medium text-stone-700 dark:text-stone-300">
-                        {m.missingLines
-                          .map((l) => l.ingredientName)
-                          .join(", ")}
+                  ) : (
+                    <div className="flex aspect-[4/3] w-full items-center justify-center bg-gradient-to-br from-amber-50 to-stone-100 dark:from-stone-800 dark:to-stone-900">
+                      <span className="font-serif text-6xl italic text-amber-700/40 dark:text-amber-500/30">
+                        {m.recipe.name[0]}
                       </span>
                     </div>
                   )}
-                </div>
-              </Link>
-            </li>
-          ))}
+                  <div className="p-4">
+                    <div className="font-medium tracking-tight">
+                      {m.recipe.name}
+                    </div>
+                    {m.recipe.glass && (
+                      <div className="mt-0.5 text-xs text-stone-400">
+                        {m.recipe.glass}
+                      </div>
+                    )}
+                    {showMissing && m.missingLines.length > 0 && (
+                      <div className="mt-2 text-xs text-stone-500">
+                        needs{" "}
+                        <span className="font-medium text-stone-700 dark:text-stone-300">
+                          {m.missingLines
+                            .map((l) => l.ingredientName)
+                            .join(", ")}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       )}
     </section>

@@ -21,6 +21,15 @@ const fraunces = Fraunces({
 export const metadata: Metadata = {
   title: "Behind the Bar",
   description: "Cocktails you can make with what you have",
+  appleWebApp: {
+    capable: true,
+    title: "Bar",
+    statusBarStyle: "default",
+  },
+};
+
+export const viewport = {
+  themeColor: "#b45309",
 };
 
 export default function RootLayout({

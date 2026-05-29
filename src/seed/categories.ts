@@ -99,6 +99,7 @@ export const CATEGORY_TREE: Record<IngredientCategory, CategoryNode> = {
       { name: "Peach schnapps" },
       { name: "Raspberry liqueur" },
       { name: "Apricot liqueur" },
+      { name: "Elderflower liqueur" },
       { name: "Green Chartreuse" },
       { name: "Yellow Chartreuse" },
     ],
@@ -141,6 +142,7 @@ export const CATEGORY_TREE: Record<IngredientCategory, CategoryNode> = {
     name: "Mixer",
     children: [
       { name: "Soda water" },
+    { name: "Tonic water" },
       { name: "Coca-Cola" },
       { name: "Ginger ale" },
       { name: "Ginger beer" },

@@ -13,11 +13,15 @@ export type ParsedMeasure = {
 // rewritten to its oz equivalent so the UI shows oz everywhere.
 //
 // Examples:
-//   "1 1/2 oz " → { amount: 1.5,  unit: "oz",   notation: "1 1/2 oz" }
-//   "4.5 cl"    → { amount: 1.5,  unit: "oz",   notation: "1 1/2 oz" }
-//   "1.5 cl"    → { amount: 0.5,  unit: "oz",   notation: "1/2 oz"   }
-//   "1 dash"    → { amount: 1,    unit: "dash", notation: "1 dash"   }
-//   null / ""   → { amount: null, unit: null,   notation: ""         }
+//   "1 1/2 oz "    → { amount: 1.5,  unit: "oz",   notation: "1 1/2 oz" }
+//   "4.5 cl"       → { amount: 1.5,  unit: "oz",   notation: "1 1/2 oz" }
+//   "1.5 cl"       → { amount: 0.5,  unit: "oz",   notation: "1/2 oz"   }
+//   "2-3 oz"       → { amount: 2.5,  unit: "oz",   notation: "2-3 oz"   }
+//   "1 dash"       → { amount: 1,    unit: "dash", notation: "1 dash"   }
+//   "1/2 oz white" → { amount: 0.5,  unit: "oz",   notation: "1/2 oz white" }
+//   "tblsp"        → { amount: null, unit: "tbsp", notation: "tblsp"    }
+//   "long strip"   → { amount: null, unit: null,   notation: "long strip" }
+//   null / ""      → { amount: null, unit: null,   notation: ""         }
 export function parseMeasure(raw: string | null): ParsedMeasure {
   const notation = (raw ?? "").trim();
   if (!notation) return { amount: null, unit: null, notation: "" };
@@ -29,7 +33,7 @@ export function parseMeasure(raw: string | null): ParsedMeasure {
   if (m) {
     parsed = {
       amount: Number(m[1]) + Number(m[2]) / Number(m[3]),
-      unit: m[4].trim().toLowerCase() || null,
+      unit: normalizeUnit(m[4]),
       notation,
     };
   }
@@ -40,7 +44,19 @@ export function parseMeasure(raw: string | null): ParsedMeasure {
     if (m) {
       parsed = {
         amount: Number(m[1]) / Number(m[2]),
-        unit: m[3].trim().toLowerCase() || null,
+        unit: normalizeUnit(m[3]),
+        notation,
+      };
+    }
+  }
+
+  // "2-3 oz" or "4-6 leaves" — range; use the midpoint as the numeric amount
+  if (!parsed) {
+    m = notation.match(/^(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)\s*(.*)$/);
+    if (m) {
+      parsed = {
+        amount: (Number(m[1]) + Number(m[2])) / 2,
+        unit: normalizeUnit(m[3]),
         notation,
       };
     }
@@ -52,7 +68,7 @@ export function parseMeasure(raw: string | null): ParsedMeasure {
     if (m) {
       parsed = {
         amount: Number(m[1]),
-        unit: m[2].trim().toLowerCase() || null,
+        unit: normalizeUnit(m[2]),
         notation,
       };
     }
@@ -60,13 +76,77 @@ export function parseMeasure(raw: string | null): ParsedMeasure {
 
   // "dash", "splash", "to taste" — word only
   if (!parsed) {
-    parsed = { amount: null, unit: notation.toLowerCase(), notation };
+    parsed = { amount: null, unit: normalizeUnit(notation), notation };
   }
 
   if (parsed.unit === "cl" && parsed.amount != null) {
     return convertClToOz(parsed.amount);
   }
   return parsed;
+}
+
+// Recognised measurement units. Anything outside this list collapses to null
+// (notation column still preserves the original display string).
+const KNOWN_UNITS = new Set([
+  "oz",
+  "ml",
+  "cl",
+  "tsp",
+  "tbsp",
+  "dash",
+  "dashes",
+  "splash",
+  "drop",
+  "drops",
+  "part",
+  "parts",
+  "cup",
+  "cups",
+  "sprig",
+  "leaf",
+  "leaves",
+  "pinch",
+  "cube",
+  "cubes",
+  "wedge",
+  "slice",
+  "twist",
+  "peel",
+  "wheel",
+  "rim",
+  "grated",
+  "rinse",
+]);
+
+// Common typos / variants mapped to canonical units.
+const UNIT_ALIASES: Record<string, string> = {
+  tblsp: "tbsp",
+  tbs: "tbsp",
+  ounce: "oz",
+  ounces: "oz",
+  ozs: "oz",
+  teaspoon: "tsp",
+  teaspoons: "tsp",
+  tablespoon: "tbsp",
+  tablespoons: "tbsp",
+  shot: "oz",
+  shots: "oz",
+};
+
+function normalizeUnit(raw: string): string | null {
+  const trimmed = raw.trim().toLowerCase();
+  if (!trimmed) return null;
+
+  if (UNIT_ALIASES[trimmed]) return UNIT_ALIASES[trimmed];
+  if (KNOWN_UNITS.has(trimmed)) return trimmed;
+
+  // First-token match catches "tsp superfine", "oz white", "tsp chilled"
+  const firstToken = trimmed.split(/\s+/)[0];
+  if (UNIT_ALIASES[firstToken]) return UNIT_ALIASES[firstToken];
+  if (KNOWN_UNITS.has(firstToken)) return firstToken;
+
+  // Unknown — descriptor like "long strip", "to top", "fresh"
+  return null;
 }
 
 // 3 cl ≈ 1 oz (IBA bartender shorthand — uses 3, not the exact 2.957,

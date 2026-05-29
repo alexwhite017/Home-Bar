@@ -18,4 +18,8 @@ export const SUBSTITUTION_GROUPS: { name: string; members: string[] }[] = [
     name: "American whiskeys",
     members: ["Bourbon", "Rye"],
   },
+  {
+    name: "Italian bitters",
+    members: ["Aperol", "Campari"],
+  },
 ];

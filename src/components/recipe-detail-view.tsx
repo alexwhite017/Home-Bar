@@ -4,6 +4,8 @@ import { useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useInventory } from "@/hooks/use-inventory";
+import { useFavorites } from "@/hooks/use-favorites";
+import { useRecipeNote } from "@/hooks/use-recipe-note";
 import {
   deserializeCatalog,
   type SerializedCatalog,
@@ -19,6 +21,9 @@ export function RecipeDetailView({
 }) {
   const catalog = useMemo(() => deserializeCatalog(serialized), [serialized]);
   const { ids, hydrated } = useInventory();
+  const { ids: favorites, toggle: toggleFavorite } = useFavorites();
+  const isFav = favorites.has(recipe.id);
+  const { note, setNote, hydrated: noteHydrated } = useRecipeNote(recipe.id);
 
   return (
     <article className="mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-10">
@@ -42,15 +47,28 @@ export function RecipeDetailView({
         </div>
       )}
 
-      <header className="mt-8 border-b border-stone-200 pb-6 dark:border-stone-800">
-        <h1 className="font-serif text-4xl italic tracking-tight sm:text-5xl">
-          {recipe.name}
-        </h1>
-        {recipe.glass && (
-          <p className="mt-2 text-sm text-stone-500">
-            Served in a {recipe.glass.toLowerCase()}
-          </p>
-        )}
+      <header className="mt-8 flex items-start justify-between gap-4 border-b border-stone-200 pb-6 dark:border-stone-800">
+        <div>
+          <h1 className="font-serif text-4xl italic tracking-tight sm:text-5xl">
+            {recipe.name}
+          </h1>
+          {recipe.glass && (
+            <p className="mt-2 text-sm text-stone-500">
+              Served in a {recipe.glass.toLowerCase()}
+            </p>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => toggleFavorite(recipe.id)}
+          aria-label={isFav ? "Remove from favorites" : "Save to favorites"}
+          aria-pressed={isFav}
+          className="mt-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-stone-200 bg-white text-xl shadow-sm transition-transform hover:scale-110 dark:border-stone-800 dark:bg-stone-900"
+        >
+          <span className={isFav ? "text-rose-500" : "text-stone-400"}>
+            {isFav ? "♥" : "♡"}
+          </span>
+        </button>
       </header>
 
       <section className="mt-8">
@@ -135,6 +153,23 @@ export function RecipeDetailView({
         </h2>
         <p className="mt-4 leading-relaxed text-stone-700 dark:text-stone-300">
           {recipe.instructions}
+        </p>
+      </section>
+
+      <section className="mt-10">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-stone-500">
+          Your notes
+        </h2>
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="Your tweaks, observations, preferences..."
+          rows={3}
+          disabled={!noteHydrated}
+          className="mt-3 w-full resize-y rounded-lg border border-stone-200 bg-white px-4 py-3 text-sm placeholder:text-stone-400 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20 disabled:opacity-50 dark:border-stone-800 dark:bg-stone-900"
+        />
+        <p className="mt-1.5 text-xs text-stone-400">
+          Saved on this device.
         </p>
       </section>
     </article>

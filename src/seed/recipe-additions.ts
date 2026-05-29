@@ -33,6 +33,8 @@ export const RECIPE_ADDITIONS: RecipeAddition[] = [
     glass: "Old-fashioned glass",
     instructions:
       "Stir with ice and strain over one large cube in a chilled rocks glass. Express an orange peel over the top and use it as garnish.",
+    imageUrl:
+      "https://www.thecocktaildb.com/images/media/drink/km84qi1513705868.jpg",
     ingredients: [
       { name: "Bourbon", notation: "1 1/2 oz" },
       { name: "Campari", notation: "1 oz" },
@@ -135,6 +137,87 @@ export const RECIPE_ADDITIONS: RecipeAddition[] = [
       { name: "Simple syrup", notation: "1/2 oz" },
       { name: "Mint", notation: "4-6 leaves" },
       { name: "Mint", notation: "sprig", optional: true },
+    ],
+  },
+
+  {
+    name: "Aperol Spritz",
+    glass: "Wine glass",
+    instructions:
+      "Build in a chilled wine glass with plenty of ice: Prosecco first, then Aperol, then a splash of soda. Garnish with an orange slice.",
+    imageUrl:
+      "https://www.thecocktaildb.com/images/media/drink/iloasq1587661955.jpg",
+    ingredients: [
+      { name: "Prosecco", notation: "3 oz" },
+      { name: "Aperol", notation: "2 oz" },
+      { name: "Soda water", notation: "1 splash" },
+      { name: "Orange", notation: "slice", optional: true },
+    ],
+  },
+
+  {
+    name: "Negroni Sbagliato",
+    glass: "Old-fashioned glass",
+    instructions:
+      "Build over one large ice cube in a chilled rocks glass. Stir gently and garnish with an orange peel.",
+    ingredients: [
+      { name: "Campari", notation: "1 oz" },
+      { name: "Sweet vermouth", notation: "1 oz" },
+      { name: "Prosecco", notation: "1 oz" },
+      { name: "Orange", notation: "peel", optional: true },
+    ],
+  },
+
+  {
+    name: "Garibaldi",
+    glass: "Highball glass",
+    instructions:
+      "Build Campari over ice in a highball, then top with fluffy orange juice (a high-speed blender for ~10 seconds aerates it). Garnish with an orange slice.",
+    ingredients: [
+      { name: "Campari", notation: "1 1/2 oz" },
+      { name: "Orange juice", notation: "4 oz" },
+      { name: "Orange", notation: "slice", optional: true },
+    ],
+  },
+
+  {
+    name: "Bicicletta",
+    glass: "Wine glass",
+    instructions:
+      "Build Campari and white wine in a chilled wine glass over ice. Top with soda water and garnish with a lemon slice.",
+    ingredients: [
+      { name: "Campari", notation: "1 1/2 oz" },
+      { name: "Dry white wine", notation: "4 oz" },
+      { name: "Soda water", notation: "1 oz" },
+      { name: "Lemon", notation: "slice", optional: true },
+    ],
+  },
+
+  {
+    name: "Bee's Knees",
+    glass: "Cocktail glass",
+    instructions:
+      "Shake hard with ice and double-strain into a chilled coupe. Garnish with a lemon twist.",
+    ingredients: [
+      { name: "Gin", notation: "2 oz" },
+      { name: "Lemon juice", notation: "3/4 oz" },
+      { name: "Honey syrup", notation: "3/4 oz" },
+      { name: "Lemon", notation: "twist", optional: true },
+    ],
+  },
+
+  {
+    name: "Hugo",
+    glass: "Wine glass",
+    instructions:
+      "Lightly muddle mint leaves in a wine glass, add ice, then build elderflower liqueur, lime juice, Prosecco, and a splash of soda. Stir gently. Garnish with mint and a lime wheel.",
+    ingredients: [
+      { name: "Prosecco", notation: "3 oz" },
+      { name: "Elderflower liqueur", notation: "1 oz" },
+      { name: "Soda water", notation: "1 oz" },
+      { name: "Lime juice", notation: "1/4 oz" },
+      { name: "Mint", notation: "6 leaves" },
+      { name: "Lime", notation: "wheel", optional: true },
     ],
   },
 ];
